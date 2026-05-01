@@ -20,8 +20,13 @@ const INJECTION_PATTERNS: RegExp[] = [
   /forget\s+(everything|all)\s+(you\s+know|above)/i,
   /act\s+as\s+(if\s+you\s+are|a)\s+/i,
   /system\s*:\s*you\s+are/i,
+  /developer\s*mode/i,
+  /debug\s*mode/i,
+  /translate\s+the\s+above/i,
+  /summarize\s+the\s+above/i,
   /<\s*script\s*>/i,
   /javascript\s*:/i,
+  /base64/i,
 ];
 
 /** Matches any HTML tag */

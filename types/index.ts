@@ -15,12 +15,21 @@ export interface GeminiMessage {
   parts: Array<{ text: string }>;
 }
 
+// ─── UI Constants ─────────────────────────────────────────────────────────────
+
+export const UI_ROLES = {
+  USER: "user",
+  ASSISTANT: "assistant",
+} as const;
+
+export type UIRole = (typeof UI_ROLES)[keyof typeof UI_ROLES];
+
 // ─── Chat UI ──────────────────────────────────────────────────────────────────
 
 /** A message as represented in the React UI state */
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: UIRole;
   content: string;
   timestamp: Date;
   /** True while the AI is still streaming tokens for this message */
@@ -63,10 +72,17 @@ export interface StoredMessage {
   timestamp: string; // ISO string — Firestore doesn't store Date objects natively
 }
 
+/** Structural type for Firestore Timestamps (works for both client and admin SDKs) */
+export type FirestoreTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+  toDate(): Date;
+};
+
 export interface ChatSession {
   id: string;
   userId: string;
-  createdAt: unknown; // Firestore Timestamp
+  createdAt: FirestoreTimestamp;
   messages: StoredMessage[];
 }
 

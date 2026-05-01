@@ -3,7 +3,7 @@
 import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ChatMessage } from "@/types";
+import { UI_ROLES, type ChatMessage } from "@/types";
 
 // ─── Typing Cursor ────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ interface MessageBubbleProps {
  */
 export const MessageBubble = memo(
   function MessageBubble({ message }: MessageBubbleProps) {
-    const isUser = message.role === "user";
+    const isUser = message.role === UI_ROLES.USER;
 
     return (
       <div

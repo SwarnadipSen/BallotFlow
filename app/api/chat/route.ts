@@ -65,7 +65,16 @@ export async function GET(): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<Response> {
   const clientIp = getClientIp(request);
 
-  // ── 1. Rate Limiting ────────────────────────────────────────────────────────
+  // ── 1a. Validate Content-Type ──────────────────────────────────────────────
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return NextResponse.json(
+      { error: "Content-Type must be application/json." },
+      { status: 415 }
+    );
+  }
+
+  // ── 1b. Rate Limiting ──────────────────────────────────────────────────────
   const { allowed, remaining, resetInMs } = checkRateLimit(clientIp);
 
   if (!allowed) {

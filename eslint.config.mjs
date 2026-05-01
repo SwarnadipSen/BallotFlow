@@ -13,6 +13,19 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+
+  {
+    rules: {
+      "no-console": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-floating-promises": "error",
+      "prefer-const": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

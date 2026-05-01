@@ -73,12 +73,13 @@ if (typeof setInterval !== "undefined" && typeof process !== "undefined") {
  */
 export function checkRateLimit(identifier: string): RateLimitResult {
   const now = Date.now();
+  const normalizedId = identifier.toLowerCase().trim() || "unknown";
 
-  let bucket = buckets.get(identifier);
+  let bucket = buckets.get(normalizedId);
 
   if (!bucket) {
     bucket = { tokens: RATE_LIMIT_MAX_TOKENS, lastRefill: now };
-    buckets.set(identifier, bucket);
+    buckets.set(normalizedId, bucket);
   }
 
   // Refill tokens proportional to elapsed time

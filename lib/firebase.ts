@@ -19,6 +19,7 @@ import {
   updateDoc,
   arrayUnion,
 } from "firebase/firestore";
+import { logger } from "@/lib/logger";
 
 // ─── Firebase Config ──────────────────────────────────────────────────────────
 
@@ -95,7 +96,9 @@ export async function createChatSession(
     });
     return docRef.id;
   } catch (error) {
-    console.error("Failed to create chat session:", error);
+    logger.error("Failed to create chat session", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Return a local fallback ID — don't break the app
     return `local_${Date.now()}`;
   }
@@ -120,7 +123,10 @@ export async function appendMessage(
       }),
     });
   } catch (error) {
-    console.error("Failed to append message:", error);
+    logger.error("Failed to append message", {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Non-fatal — chat continues even if storage fails
   }
 }
@@ -146,7 +152,10 @@ export async function getUserSessions(
         ...(d.data() as Omit<ChatSession, "id">),
       }));
   } catch (error) {
-    console.error("Failed to fetch sessions:", error);
+    logger.error("Failed to fetch sessions", {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }
