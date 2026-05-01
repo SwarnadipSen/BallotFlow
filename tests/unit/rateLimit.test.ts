@@ -35,7 +35,28 @@ describe("checkRateLimit", () => {
 });
 
 describe("cleanupStaleBuckets", () => {
-  it("runs without throwing", () => {
-    expect(() => cleanupStaleBuckets()).not.toThrow();
+  it("runs without throwing and returns pruned count", () => {
+    // Fill a bucket, then prune
+    const id = `stale-${Math.random()}`;
+    checkRateLimit(id);
+    const pruned = cleanupStaleBuckets();
+    expect(typeof pruned).toBe("number");
+  });
+
+  it("allows requests up to the token limit (burst)", () => {
+    const id = `burst-${Math.random()}`;
+    // Should allow 20 requests (RATE_LIMIT_MAX_TOKENS)
+    for (let i = 0; i < 20; i++) {
+      const result = checkRateLimit(id);
+      expect(result.allowed).toBe(true);
+    }
+  });
+
+  it("blocks the 21st request after consecutive calls", () => {
+    const id = `block-${Math.random()}`;
+    for (let i = 0; i < 20; i++) checkRateLimit(id);
+    const blocked = checkRateLimit(id);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.remaining).toBe(0);
   });
 });

@@ -21,16 +21,10 @@ interface LogEntry {
   [key: string]: unknown;
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
-
-/**
- * Emits a structured log entry.
- * In production this outputs Cloud Logging-compatible JSON.
- */
 function log(level: LogLevel, message: string, payload?: LogPayload): void {
   const severity = level.toUpperCase() as Uppercase<LogLevel>;
 
-  if (IS_PRODUCTION) {
+  if (process.env.NODE_ENV === "production") {
     // Cloud Logging JSON format
     const entry: LogEntry = {
       severity,

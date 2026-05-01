@@ -60,6 +60,33 @@ describe("sanitizeUserMessage", () => {
       expect(result.error).toBeUndefined();
     }
   });
+
+  it("returns error for non-string input (number)", () => {
+    const result = sanitizeUserMessage(42 as unknown as string);
+    expect(result.sanitized).toBeNull();
+    expect(result.error).toBeTruthy();
+  });
+
+  it("returns error for null input", () => {
+    const result = sanitizeUserMessage(null as unknown as string);
+    expect(result.sanitized).toBeNull();
+  });
+
+  it("returns error for undefined input", () => {
+    const result = sanitizeUserMessage(undefined as unknown as string);
+    expect(result.sanitized).toBeNull();
+  });
+
+  it("strips nested HTML injection attempts", () => {
+    const result = sanitizeUserMessage('<img src=x onerror="alert(1)">');
+    expect(result.sanitized).not.toContain("<img");
+  });
+
+  it("handles message at exactly max length (boundary)", () => {
+    const maxMsg = "a".repeat(2000); // MAX_MESSAGE_LENGTH
+    const result = sanitizeUserMessage(maxMsg);
+    expect(result.sanitized).not.toBeNull();
+  });
 });
 
 describe("validateChatHistory", () => {

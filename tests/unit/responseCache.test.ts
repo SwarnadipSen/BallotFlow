@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getCachedResponse,
   setCachedResponse,
   getCacheSize,
 } from "@/lib/responseCache";
+import { CACHE_MAX_SIZE } from "@/lib/constants";
 
 /** A unique prefix ensures these tests don't share state with each other */
 const prefix = `cache-test-${Date.now()}`;
@@ -66,8 +67,30 @@ describe("responseCache — getCacheSize", () => {
   });
 
   it("increments after a new entry is added", () => {
-    const before = getCacheSize();
+    const beforeVal = getCacheSize();
     setCachedResponse(`${prefix}-size-check-${Math.random()}`, "answer");
-    expect(getCacheSize()).toBe(before + 1);
+    expect(getCacheSize()).toBe(beforeVal + 1);
+  });
+
+  it("does not return cached response after TTL expires (mock timers)", () => {
+    vi.useFakeTimers();
+    const msg = `${prefix}-expiry`;
+    setCachedResponse(msg, "cached value");
+
+    // Advance time by 2 hours (TTL is 1 hour)
+    vi.advanceTimersByTime(2 * 60 * 60 * 1000);
+
+    expect(getCachedResponse(msg)).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("evicts the least recently used entry when full", () => {
+    // Fill the cache to trigger LRU eviction
+    // We add more than CACHE_MAX_SIZE to ensure eviction happens
+    for (let i = 0; i < CACHE_MAX_SIZE + 50; i++) {
+      setCachedResponse(`${prefix}-lru-${i}`, `val-${i}`);
+    }
+    // Size should be capped at CACHE_MAX_SIZE
+    expect(getCacheSize()).toBeLessThanOrEqual(CACHE_MAX_SIZE);
   });
 });
