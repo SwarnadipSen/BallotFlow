@@ -331,6 +331,7 @@ export default function HomePage() {
               >
                 <Link
                   href={`/chat?q=${encodeURIComponent(q)}`}
+                  className="chip-hover"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -342,20 +343,7 @@ export default function HomePage() {
                     color: "var(--color-text-secondary)",
                     fontSize: "0.9rem",
                     textDecoration: "none",
-                    transition: "all var(--transition-base)",
                     cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor =
-                      "var(--color-primary)";
-                    (e.currentTarget as HTMLElement).style.color =
-                      "var(--color-text-primary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor =
-                      "var(--color-border)";
-                    (e.currentTarget as HTMLElement).style.color =
-                      "var(--color-text-secondary)";
                   }}
                   aria-label={`Ask: ${q}`}
                 >
@@ -633,22 +621,13 @@ export default function HomePage() {
               marginBottom: "1.5rem",
             }}
           >
-            <Link
-              href="/chat"
-              style={{ color: "var(--color-text-muted)", textDecoration: "none" }}
-            >
+            <Link href="/chat" className="footer-link">
               Chat
             </Link>
-            <Link
-              href="/timeline"
-              style={{ color: "var(--color-text-muted)", textDecoration: "none" }}
-            >
+            <Link href="/timeline" className="footer-link">
               Timeline
             </Link>
-            <Link
-              href="/glossary"
-              style={{ color: "var(--color-text-muted)", textDecoration: "none" }}
-            >
+            <Link href="/glossary" className="footer-link">
               Glossary
             </Link>
           </nav>

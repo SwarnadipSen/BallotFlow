@@ -1,13 +1,20 @@
 /**
  * Input sanitization utilities.
+ *
  * Prevents prompt injection and XSS attacks before passing user input to Gemini.
+ * All exported functions are pure (no side effects) for easy unit testing.
  */
 
-/** Maximum allowed characters per user message */
-const MAX_MESSAGE_LENGTH = 2000;
+import { MAX_MESSAGE_LENGTH, MAX_HISTORY_LENGTH } from "@/lib/constants";
+import type { SanitizeResult, ValidationResult, GeminiMessage } from "@/types";
 
-/** Patterns that suggest prompt injection attempts */
-const INJECTION_PATTERNS = [
+// ─── Injection Detection ──────────────────────────────────────────────────────
+
+/**
+ * Patterns that indicate a prompt injection attempt.
+ * Checked against the stripped (HTML-removed) message text.
+ */
+const INJECTION_PATTERNS: RegExp[] = [
   /ignore\s+(all\s+)?previous\s+instructions/i,
   /you\s+are\s+now\s+(a|an)\s+/i,
   /forget\s+(everything|all)\s+(you\s+know|above)/i,
@@ -17,24 +24,27 @@ const INJECTION_PATTERNS = [
   /javascript\s*:/i,
 ];
 
+/** Matches any HTML tag */
+const HTML_TAG_PATTERN = /<[^>]*>/g;
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
+
 /**
- * Sanitizes user chat input before sending to Gemini.
- * - Trims whitespace
- * - Enforces length limits
- * - Detects prompt injection patterns
- * - Strips HTML tags
+ * Sanitizes a raw user chat message before sending to Gemini.
  *
- * @returns Sanitized string, or null if input is invalid/dangerous
+ * Steps:
+ * 1. Type check and trim whitespace
+ * 2. Enforce character length limit
+ * 3. Strip HTML tags (XSS prevention)
+ * 4. Detect prompt injection patterns
+ *
+ * @returns `{ sanitized }` on success, `{ sanitized: null, error }` on failure
  */
-export function sanitizeUserMessage(input: string): {
-  sanitized: string | null;
-  error?: string;
-} {
-  if (!input || typeof input !== "string") {
+export function sanitizeUserMessage(input: unknown): SanitizeResult {
+  if (typeof input !== "string" || input.length === 0) {
     return { sanitized: null, error: "Message must be a non-empty string." };
   }
 
-  // Trim whitespace
   const trimmed = input.trim();
 
   if (trimmed.length === 0) {
@@ -48,10 +58,10 @@ export function sanitizeUserMessage(input: string): {
     };
   }
 
-  // Strip HTML tags to prevent XSS
-  const stripped = trimmed.replace(/<[^>]*>/g, "");
+  // Strip HTML tags
+  const stripped = trimmed.replace(HTML_TAG_PATTERN, "");
 
-  // Check for prompt injection patterns
+  // Check for prompt injection
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(stripped)) {
       return {
@@ -65,17 +75,19 @@ export function sanitizeUserMessage(input: string): {
 }
 
 /**
- * Validates chat history array before passing to Gemini.
- * Ensures each message has correct role and non-empty text.
+ * Validates the chat history array before passing it to Gemini.
+ *
+ * Checks:
+ * - Must be an array
+ * - Must not exceed MAX_HISTORY_LENGTH entries
+ * - Each entry must have a valid `role` ("user" | "model") and `parts` array
  */
-export function validateChatHistory(
-  history: unknown[]
-): { valid: boolean; error?: string } {
+export function validateChatHistory(history: unknown): ValidationResult {
   if (!Array.isArray(history)) {
     return { valid: false, error: "History must be an array." };
   }
 
-  if (history.length > 50) {
+  if (history.length > MAX_HISTORY_LENGTH) {
     return { valid: false, error: "Chat history too long." };
   }
 
@@ -89,12 +101,13 @@ export function validateChatHistory(
       return { valid: false, error: "Invalid message format in history." };
     }
 
-    const msg = message as { role: unknown; parts: unknown };
-    if (msg.role !== "user" && msg.role !== "model") {
+    const { role, parts } = message as GeminiMessage;
+
+    if (role !== "user" && role !== "model") {
       return { valid: false, error: "Invalid role in message history." };
     }
 
-    if (!Array.isArray(msg.parts)) {
+    if (!Array.isArray(parts)) {
       return { valid: false, error: "Message parts must be an array." };
     }
   }

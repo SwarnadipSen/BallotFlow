@@ -1,63 +1,98 @@
 /**
- * Token bucket rate limiter for API routes.
- * Prevents abuse and controls Gemini API costs.
- * Uses in-memory store — replace with Redis (Cloud Memorystore) in production.
+ * Token bucket rate limiter.
+ *
+ * Algorithm: Each IP gets a bucket of tokens. One token is consumed per request.
+ * Tokens refill at a fixed rate over time. When the bucket is empty, requests
+ * are rejected with HTTP 429.
+ *
+ * Storage: In-memory Map — sufficient for a single Cloud Run instance.
+ *
+ * Production note: For multi-instance deployments (Cloud Run with >1 instance),
+ * replace this with a Redis/Memorystore-backed implementation so rate limits
+ * are enforced globally across all instances.
  */
+
+import {
+  RATE_LIMIT_MAX_TOKENS,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_REFILL_AMOUNT,
+  RATE_LIMIT_STALE_MS,
+} from "@/lib/constants";
+import type { RateLimitResult } from "@/types";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TokenBucket {
   tokens: number;
   lastRefill: number;
 }
 
-/** In-memory store: ip -> bucket */
+// ─── State ────────────────────────────────────────────────────────────────────
+
+/** ip → bucket mapping; never exported so callers can't mutate it directly */
 const buckets = new Map<string, TokenBucket>();
 
-/** Rate limit configuration */
-const RATE_LIMIT_CONFIG = {
-  /** Maximum requests per window */
-  maxTokens: 20,
-  /** Refill interval in milliseconds (1 minute) */
-  refillIntervalMs: 60_000,
-  /** Tokens added per refill interval */
-  refillAmount: 20,
-} as const;
+// ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 /**
- * Checks if a request from the given identifier is within rate limits.
+ * Removes buckets that have been inactive for RATE_LIMIT_STALE_MS.
+ * Call this on a recurring interval (e.g. every 10 minutes) to prevent
+ * unbounded memory growth in long-running instances.
  *
- * @param identifier - Usually the client IP address
- * @returns `{ allowed: boolean, remaining: number, resetInMs: number }`
+ * @returns The number of buckets that were pruned
  */
-export function checkRateLimit(identifier: string): {
-  allowed: boolean;
-  remaining: number;
-  resetInMs: number;
-} {
+export function cleanupStaleBuckets(): number {
+  const now = Date.now();
+  let pruned = 0;
+
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.lastRefill > RATE_LIMIT_STALE_MS) {
+      buckets.delete(key);
+      pruned++;
+    }
+  }
+
+  return pruned;
+}
+
+// Schedule automatic cleanup every 10 minutes when this module is loaded
+// Only runs in Node.js (server) environments, not in Edge runtime
+if (typeof setInterval !== "undefined" && typeof process !== "undefined") {
+  const TEN_MINUTES = 10 * 60 * 1000;
+  setInterval(cleanupStaleBuckets, TEN_MINUTES).unref();
+}
+
+// ─── Core ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Checks whether a request from `identifier` is within rate limits,
+ * consuming one token if allowed.
+ *
+ * @param identifier - Client IP address (or any stable identifier)
+ * @returns `{ allowed, remaining, resetInMs }`
+ */
+export function checkRateLimit(identifier: string): RateLimitResult {
   const now = Date.now();
 
   let bucket = buckets.get(identifier);
 
   if (!bucket) {
-    bucket = {
-      tokens: RATE_LIMIT_CONFIG.maxTokens,
-      lastRefill: now,
-    };
+    bucket = { tokens: RATE_LIMIT_MAX_TOKENS, lastRefill: now };
     buckets.set(identifier, bucket);
   }
 
-  // Refill tokens based on time elapsed
+  // Refill tokens proportional to elapsed time
   const elapsed = now - bucket.lastRefill;
-  if (elapsed >= RATE_LIMIT_CONFIG.refillIntervalMs) {
+  if (elapsed >= RATE_LIMIT_WINDOW_MS) {
+    const windows = Math.floor(elapsed / RATE_LIMIT_WINDOW_MS);
     bucket.tokens = Math.min(
-      RATE_LIMIT_CONFIG.maxTokens,
-      bucket.tokens +
-        Math.floor(elapsed / RATE_LIMIT_CONFIG.refillIntervalMs) *
-          RATE_LIMIT_CONFIG.refillAmount
+      RATE_LIMIT_MAX_TOKENS,
+      bucket.tokens + windows * RATE_LIMIT_REFILL_AMOUNT
     );
     bucket.lastRefill = now;
   }
 
-  const resetInMs = RATE_LIMIT_CONFIG.refillIntervalMs - (now - bucket.lastRefill);
+  const resetInMs = RATE_LIMIT_WINDOW_MS - (now - bucket.lastRefill);
 
   if (bucket.tokens <= 0) {
     return { allowed: false, remaining: 0, resetInMs };
@@ -65,19 +100,4 @@ export function checkRateLimit(identifier: string): {
 
   bucket.tokens -= 1;
   return { allowed: true, remaining: bucket.tokens, resetInMs };
-}
-
-/**
- * Periodically cleans up stale buckets to prevent memory leaks.
- * Run this on a schedule in production.
- */
-export function cleanupStaleBuckets(): void {
-  const now = Date.now();
-  const staleThreshold = RATE_LIMIT_CONFIG.refillIntervalMs * 10;
-
-  for (const [key, bucket] of buckets.entries()) {
-    if (now - bucket.lastRefill > staleThreshold) {
-      buckets.delete(key);
-    }
-  }
 }

@@ -347,7 +347,35 @@ body {
   }
 }
 
-/* ─── Responsive Utilities ───────────────────────────────────────────────── */
+/* ─── Hover Utilities (replaces JS onMouseEnter/onMouseLeave handlers) ─────── */
+
+/** Used on example question chips on the landing page */
+.chip-hover {
+  transition: border-color var(--transition-base), color var(--transition-base),
+    transform var(--transition-base);
+}
+.chip-hover:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/** Used on suggestion prompt cards in the chat page */
+.suggestion-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text-primary);
+  transform: translateY(-1px);
+}
+
+/** Used on footer navigation links */
+.footer-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.footer-link:hover {
+  color: var(--color-text-secondary);
+}
+
 .container-app {
   max-width: 1120px;
   margin: 0 auto;
